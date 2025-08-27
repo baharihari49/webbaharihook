@@ -1,0 +1,52 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  password  String   // Hashed password
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  webhooks  Webhook[]
+}
+
+model Webhook {
+  id            String    @id @default(cuid())
+  name          String
+  endpoint      String    @unique // Public endpoint URL (e.g., /w/abc123)
+  destinationUrl String   // Target webhook URL to forward to
+  isActive      Boolean   @default(true)
+  userId        String    // Owner of the webhook
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  requests      Request[]
+}
+
+model Request {
+  id          String   @id @default(cuid())
+  webhookId   String
+  webhook     Webhook  @relation(fields: [webhookId], references: [id], onDelete: Cascade)
+  method      String
+  headers     String   @db.Text // JSON string - using Text for larger data
+  body        String   @db.LongText // Request body - using LongText for very large payloads
+  query       String   @db.Text // Query parameters as JSON
+  responseStatus Int?  // Response status from destination
+  responseBody   String? @db.LongText // Response from destination - using LongText
+  error       String?  @db.Text // Error if forwarding failed
+  receivedAt  DateTime @default(now())
+  forwardedAt DateTime?
+}
