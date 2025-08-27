@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Switch } from '@/components/ui/switch'
-import { RefreshCw, ChevronDown, Settings, Info } from 'lucide-react'
+import { RefreshCw, ChevronDown, Settings, Info, Plus, Trash2 } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -42,7 +42,7 @@ interface WebhookFormProps {
   onOpenChange: (open: boolean) => void
   onSubmit: (data: { 
     name: string
-    destinationUrl: string
+    destinationUrls: string[]
     description?: string
     timeout?: number
     retryAttempts?: number
@@ -51,7 +51,7 @@ interface WebhookFormProps {
   }) => Promise<void>
   initialData?: { 
     name: string
-    destinationUrl: string
+    destinationUrls: string[]
     description?: string
     timeout?: number
     retryAttempts?: number
@@ -72,7 +72,7 @@ const presetDestinations = [
 
 export function WebhookForm({ open, onOpenChange, onSubmit, initialData }: WebhookFormProps) {
   const [name, setName] = useState(initialData?.name || '')
-  const [destinationUrl, setDestinationUrl] = useState(initialData?.destinationUrl || '')
+  const [destinationUrls, setDestinationUrls] = useState<string[]>(initialData?.destinationUrls || [''])
   const [description, setDescription] = useState(initialData?.description || '')
   const [timeout, setTimeout] = useState(initialData?.timeout || 30)
   const [retryAttempts, setRetryAttempts] = useState(initialData?.retryAttempts || 3)
@@ -82,13 +82,29 @@ export function WebhookForm({ open, onOpenChange, onSubmit, initialData }: Webho
   const [loading, setLoading] = useState(false)
   const [generatingUrl, setGeneratingUrl] = useState(false)
 
-  const generateRandomDestination = async () => {
+  const addDestinationUrl = () => {
+    setDestinationUrls([...destinationUrls, ''])
+  }
+
+  const removeDestinationUrl = (index: number) => {
+    if (destinationUrls.length > 1) {
+      setDestinationUrls(destinationUrls.filter((_, i) => i !== index))
+    }
+  }
+
+  const updateDestinationUrl = (index: number, value: string) => {
+    const updated = [...destinationUrls]
+    updated[index] = value
+    setDestinationUrls(updated)
+  }
+
+  const generateRandomDestination = async (index: number = 0) => {
     setGeneratingUrl(true)
     try {
       const response = await fetch('/api/generate-destination')
       const data = await response.json()
       if (data.destinationUrl) {
-        setDestinationUrl(data.destinationUrl)
+        updateDestinationUrl(index, data.destinationUrl)
       }
     } catch (error) {
       console.error('Error generating destination URL:', error)
@@ -97,8 +113,8 @@ export function WebhookForm({ open, onOpenChange, onSubmit, initialData }: Webho
     }
   }
 
-  const selectPresetDestination = (url: string, presetName: string) => {
-    setDestinationUrl(url)
+  const selectPresetDestination = (url: string, presetName: string, index: number = 0) => {
+    updateDestinationUrl(index, url)
     if (!name || name === 'My Webhook') {
       setName(presetName)
     }
@@ -107,7 +123,7 @@ export function WebhookForm({ open, onOpenChange, onSubmit, initialData }: Webho
   useEffect(() => {
     if (open && !initialData) {
       setName('')
-      setDestinationUrl('')
+      setDestinationUrls([''])
       setDescription('')
       setTimeout(30)
       setRetryAttempts(3)
@@ -130,7 +146,7 @@ export function WebhookForm({ open, onOpenChange, onSubmit, initialData }: Webho
 
       await onSubmit({ 
         name, 
-        destinationUrl,
+        destinationUrls: destinationUrls.filter(url => url.trim() !== ''),
         description: description || undefined,
         timeout,
         retryAttempts,
@@ -140,7 +156,7 @@ export function WebhookForm({ open, onOpenChange, onSubmit, initialData }: Webho
       
       if (!initialData) {
         setName('')
-        setDestinationUrl('')
+        setDestinationUrls([''])
         setDescription('')
         setTimeout(30)
         setRetryAttempts(3)
@@ -192,60 +208,97 @@ export function WebhookForm({ open, onOpenChange, onSubmit, initialData }: Webho
 
               <div className="grid gap-2">
                 <div className="flex items-center justify-between">
-                  <Label htmlFor="destinationUrl">Destination URL *</Label>
-                  <div className="flex gap-1">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="h-6 px-2"
-                        >
-                          Presets
-                          <ChevronDown className="h-3 w-3 ml-1" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-64">
-                        {presetDestinations.map((preset) => (
-                          <DropdownMenuItem
-                            key={preset.name}
-                            onClick={() => selectPresetDestination(preset.url, preset.name)}
-                            className="cursor-pointer"
-                          >
-                            <div className="flex flex-col">
-                              <span className="font-medium">{preset.name}</span>
-                              <span className="text-xs text-muted-foreground truncate">
-                                {preset.url.length > 40 ? preset.url.substring(0, 40) + '...' : preset.url}
-                              </span>
-                            </div>
-                          </DropdownMenuItem>
-                        ))}
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          onClick={generateRandomDestination}
-                          disabled={generatingUrl}
-                          className="cursor-pointer"
-                        >
-                          <RefreshCw className={`h-3 w-3 mr-2 ${generatingUrl ? 'animate-spin' : ''}`} />
-                          Generate Mock URL
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
+                  <Label>Destination URLs *</Label>
+                  <Button
+                    type="button"
+                    onClick={addDestinationUrl}
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 px-2"
+                  >
+                    <Plus className="h-3 w-3 mr-1" />
+                    Add URL
+                  </Button>
                 </div>
-                <Input
-                  id="destinationUrl"
-                  type="url"
-                  value={destinationUrl}
-                  onChange={(e) => setDestinationUrl(e.target.value)}
-                  placeholder="https://api.example.com/webhook"
-                  required
-                  disabled={generatingUrl}
-                />
-                <p className="text-xs text-muted-foreground">
-                  The URL where webhook requests will be forwarded
-                </p>
+                
+                <div className="space-y-2">
+                  {destinationUrls.map((url, index) => (
+                    <div key={index} className="flex gap-2">
+                      <div className="flex-1 space-y-1">
+                        <div className="flex gap-1">
+                          <Input
+                            value={url}
+                            onChange={(e) => updateDestinationUrl(index, e.target.value)}
+                            placeholder="https://example.com/webhook"
+                            required={index === 0}
+                          />
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="icon"
+                                className="shrink-0"
+                              >
+                                <ChevronDown className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-64">
+                              <DropdownMenuItem className="font-medium text-xs text-muted-foreground">
+                                Select Preset
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              {presetDestinations.map((preset) => (
+                                <DropdownMenuItem
+                                  key={preset.name}
+                                  onClick={() => selectPresetDestination(preset.url, preset.name, index)}
+                                  className="cursor-pointer"
+                                >
+                                  <div className="flex flex-col">
+                                    <span className="font-medium">{preset.name}</span>
+                                    <span className="text-xs text-muted-foreground truncate">
+                                      {preset.url.length > 40 ? preset.url.substring(0, 40) + '...' : preset.url}
+                                    </span>
+                                  </div>
+                                </DropdownMenuItem>
+                              ))}
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                onClick={() => generateRandomDestination(index)}
+                                disabled={generatingUrl}
+                                className="cursor-pointer"
+                              >
+                                <RefreshCw className={`h-3 w-3 mr-2 ${generatingUrl ? 'animate-spin' : ''}`} />
+                                Generate Mock URL
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                          {destinationUrls.length > 1 && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => removeDestinationUrl(index)}
+                              className="shrink-0"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
+                  {index === 0 && (
+                    <p className="text-xs text-muted-foreground">
+                      Primary destination - all requests will be sent here
+                    </p>
+                  )}
+                        {index > 0 && (
+                          <p className="text-xs text-muted-foreground">
+                            Fallback destination #{index} - used if previous destinations fail
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
 

@@ -28,7 +28,8 @@ interface Webhook {
   id: string
   name: string
   endpoint: string
-  destinationUrl: string
+  destinationUrls: string[]
+  destinationUrl?: string // For backward compatibility
   isActive: boolean
 }
 

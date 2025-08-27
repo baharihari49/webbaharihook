@@ -348,26 +348,31 @@ export default function WebhookDetailPage() {
               </div>
               
               <div className="space-y-2">
-                <p className="text-sm font-medium">Destination URL</p>
-                <div className="flex items-center gap-2">
-                  <code className="relative rounded bg-muted px-2 py-1 font-mono text-xs break-all flex-1">
-                    {webhook.destinationUrl}
-                  </code>
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="h-8 w-8 shrink-0"
-                    asChild
-                  >
-                    <a
-                      href={webhook.destinationUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                <p className="text-sm font-medium">Destination URLs</p>
+                {(webhook.destinationUrls || [webhook.destinationUrl]).filter(Boolean).map((url: string, index: number) => (
+                  <div key={index} className="flex items-center gap-2">
+                    <code className="relative rounded bg-muted px-2 py-1 font-mono text-xs break-all flex-1">
+                      {url}
+                      {index === 0 && webhook.destinationUrls && webhook.destinationUrls.length > 1 && (
+                        <span className="ml-1 text-blue-600 font-semibold">(Primary)</span>
+                      )}
+                    </code>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-8 w-8 shrink-0"
+                      asChild
                     >
-                      <ExternalLink className="h-3 w-3" />
-                    </a>
-                  </Button>
-                </div>
+                      <a
+                        href={url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        <ExternalLink className="h-3 w-3" />
+                      </a>
+                    </Button>
+                  </div>
+                ))}
               </div>
 
               <Separator />
@@ -457,7 +462,8 @@ export default function WebhookDetailPage() {
 
       {activeTab === 'requests' && (
         <RequestHistoryViewer 
-          requests={requests} 
+          requests={requests}
+          webhook={webhook}
           onRefresh={refreshRequests}
           loading={requestsLoading}
         />
@@ -478,7 +484,7 @@ export default function WebhookDetailPage() {
           onSubmit={handleEdit}
           initialData={{
             name: webhook.name,
-            destinationUrl: webhook.destinationUrl,
+            destinationUrls: webhook.destinationUrls || [webhook.destinationUrl].filter(Boolean),
           }}
         />
       )}

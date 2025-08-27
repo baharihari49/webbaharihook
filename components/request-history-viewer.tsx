@@ -2,15 +2,13 @@
 
 import { useState, useMemo } from 'react'
 import { 
-  Search, Download, Eye, RefreshCw, Calendar,
+  Search, Download, Eye, RefreshCw, Calendar, Send,
   CheckCircle, XCircle, Clock, Globe, Code, AlertTriangle
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Card,
   CardContent,
-  CardHeader,
-  CardTitle,
 } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -22,38 +20,38 @@ import {
   SelectValue 
 } from '@/components/ui/select'
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
-import { ScrollArea } from '@/components/ui/scroll-area'
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { ResendDialog } from './resend-dialog'
 
-interface Request {
+import { WebhookRequest } from '@/types/webhook'
+
+interface WebhookWithDestinations {
   id: string
-  method: string
-  headers: Record<string, unknown>
-  body: string
-  statusCode: number | null
-  responseBody: string | null
-  receivedAt: string
-  forwardedAt: string | null
-  responseTime: number | null
+  name: string
+  destinationUrls: string[]
+  destinationUrl?: string // For backward compatibility
 }
 
 interface RequestHistoryViewerProps {
-  requests: Request[]
+  requests: WebhookRequest[]
+  webhook?: WebhookWithDestinations
   onRefresh: () => void
   loading?: boolean
 }
 
-export function RequestHistoryViewer({ requests, onRefresh, loading }: RequestHistoryViewerProps) {
+export function RequestHistoryViewer({ requests, webhook, onRefresh, loading }: RequestHistoryViewerProps) {
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [methodFilter, setMethodFilter] = useState<string>('all')
-  const [selectedRequest, setSelectedRequest] = useState<Request | null>(null)
+  const [selectedRequest, setSelectedRequest] = useState<WebhookRequest | null>(null)
+  const [resendDialogOpen, setResendDialogOpen] = useState(false)
+  const [requestToResend, setRequestToResend] = useState<WebhookRequest | null>(null)
   const [sortBy, setSortBy] = useState<'receivedAt' | 'responseTime' | 'statusCode'>('receivedAt')
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
 
@@ -105,7 +103,7 @@ export function RequestHistoryViewer({ requests, onRefresh, loading }: RequestHi
     linkElement.click()
   }
 
-  const getStatusIcon = (request: Request) => {
+  const getStatusIcon = (request: WebhookRequest) => {
     if (!request.statusCode) {
       return <XCircle className="h-4 w-4 text-red-500" />
     }
@@ -275,9 +273,24 @@ export function RequestHistoryViewer({ requests, onRefresh, loading }: RequestHi
                       </div>
                     </div>
                     
-                    <Button variant="ghost" size="sm">
-                      <Eye className="h-4 w-4" />
-                    </Button>
+                    <div className="flex gap-1">
+                      {webhook && (
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setRequestToResend(request)
+                            setResendDialogOpen(true)
+                          }}
+                        >
+                          <Send className="h-4 w-4" />
+                        </Button>
+                      )}
+                      <Button variant="ghost" size="sm">
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -286,119 +299,155 @@ export function RequestHistoryViewer({ requests, onRefresh, loading }: RequestHi
         </CardContent>
       </Card>
 
-      {/* Request Detail Dialog */}
-      <Dialog open={!!selectedRequest} onOpenChange={() => setSelectedRequest(null)}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Code className="h-5 w-5" />
-              Request Details
-            </DialogTitle>
-            <DialogDescription>
-              {selectedRequest && (
-                <>
-                  {selectedRequest.method} request received at {new Date(selectedRequest.receivedAt).toLocaleString()}
-                </>
+      {/* Request Detail Sheet */}
+      <Sheet open={!!selectedRequest} onOpenChange={() => setSelectedRequest(null)}>
+        <SheetContent className="w-[1000px] sm:w-[1000px] overflow-y-auto p-4">
+          <SheetHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <SheetTitle className="flex items-center gap-2">
+                  <Code className="h-5 w-5" />
+                  Request Details
+                </SheetTitle>
+                <SheetDescription>
+                  {selectedRequest && (
+                    <>
+                      {selectedRequest.method} request received at {new Date(selectedRequest.receivedAt).toLocaleString()}
+                    </>
+                  )}
+                </SheetDescription>
+              </div>
+              {webhook && selectedRequest && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setRequestToResend(selectedRequest)
+                    setResendDialogOpen(true)
+                  }}
+                >
+                  <Send className="mr-2 h-4 w-4" />
+                  Resend
+                </Button>
               )}
-            </DialogDescription>
-          </DialogHeader>
+            </div>
+          </SheetHeader>
           
           {selectedRequest && (
-            <Tabs defaultValue="overview" className="flex-1">
-              <TabsList className="grid w-full grid-cols-4">
-                <TabsTrigger value="overview">Overview</TabsTrigger>
-                <TabsTrigger value="headers">Headers</TabsTrigger>
-                <TabsTrigger value="body">Request Body</TabsTrigger>
-                <TabsTrigger value="response">Response</TabsTrigger>
-              </TabsList>
-              
-              <TabsContent value="overview" className="space-y-4 mt-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <Card>
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-sm">Request Info</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-2 text-sm">
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Method:</span>
-                        <Badge variant="outline">{selectedRequest.method}</Badge>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Status:</span>
-                        <Badge variant={getStatusBadgeVariant(selectedRequest.statusCode)}>
-                          {selectedRequest.statusCode || 'Failed'}
-                        </Badge>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Response Time:</span>
-                        <span className="font-mono">{selectedRequest.responseTime || 0}ms</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Received:</span>
-                        <span className="font-mono text-xs">
-                          {new Date(selectedRequest.receivedAt).toISOString()}
-                        </span>
-                      </div>
-                    </CardContent>
-                  </Card>
-                  
-                  <Card>
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-sm">Forward Info</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-2 text-sm">
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Forwarded:</span>
-                        <span>{selectedRequest.forwardedAt ? '✓ Yes' : '✗ No'}</span>
-                      </div>
-                      {selectedRequest.forwardedAt && (
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Forwarded At:</span>
-                          <span className="font-mono text-xs">
-                            {new Date(selectedRequest.forwardedAt).toISOString()}
-                          </span>
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
+            <div className="mt-6 space-y-6">
+              {/* Quick Stats */}
+              <div className="grid grid-cols-3 gap-4">
+                <div className="space-y-1">
+                  <p className="text-sm text-muted-foreground">Method</p>
+                  <Badge variant="outline" className="font-mono">
+                    {selectedRequest.method}
+                  </Badge>
                 </div>
-              </TabsContent>
-              
-              <TabsContent value="headers" className="mt-4">
-                <ScrollArea className="h-96">
-                  <pre className="bg-muted p-4 rounded-lg text-sm whitespace-pre-wrap">
-                    {formatHeaders(selectedRequest.headers)}
-                  </pre>
-                </ScrollArea>
-              </TabsContent>
-              
-              <TabsContent value="body" className="mt-4">
-                <ScrollArea className="h-96">
-                  <pre className="bg-muted p-4 rounded-lg text-sm whitespace-pre-wrap font-mono">
-                    {selectedRequest.body 
-                      ? formatJsonBody(selectedRequest.body)
-                      : 'No request body'
-                    }
-                  </pre>
-                </ScrollArea>
-              </TabsContent>
-              
-              <TabsContent value="response" className="mt-4">
-                <ScrollArea className="h-96">
-                  <pre className="bg-muted p-4 rounded-lg text-sm whitespace-pre-wrap font-mono">
-                    {selectedRequest.responseBody 
-                      ? formatJsonBody(selectedRequest.responseBody)
-                      : selectedRequest.statusCode 
-                        ? 'No response body'
-                        : 'Request failed - no response received'
-                    }
-                  </pre>
-                </ScrollArea>
-              </TabsContent>
-            </Tabs>
+                <div className="space-y-1">
+                  <p className="text-sm text-muted-foreground">Status</p>
+                  <Badge variant={getStatusBadgeVariant(selectedRequest.statusCode)}>
+                    {selectedRequest.statusCode || 'Failed'}
+                  </Badge>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm text-muted-foreground">Response Time</p>
+                  <p className="font-mono text-sm font-medium">
+                    {selectedRequest.responseTime || 0}ms
+                  </p>
+                </div>
+              </div>
+
+              {/* Timestamps */}
+              <div className="space-y-2 pb-4 border-b">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">Received At</span>
+                  <code className="text-xs bg-muted px-2 py-1 rounded">
+                    {new Date(selectedRequest.receivedAt).toLocaleString()}
+                  </code>
+                </div>
+                {selectedRequest.forwardedAt && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">Forwarded At</span>
+                    <code className="text-xs bg-muted px-2 py-1 rounded">
+                      {new Date(selectedRequest.forwardedAt).toLocaleString()}
+                    </code>
+                  </div>
+                )}
+              </div>
+
+              {/* Tabs for detailed info */}
+              <Tabs defaultValue="headers" className="flex-1">
+                <TabsList className="grid w-full grid-cols-3">
+                  <TabsTrigger value="headers">Headers</TabsTrigger>
+                  <TabsTrigger value="body">Request Body</TabsTrigger>
+                  <TabsTrigger value="response">Response</TabsTrigger>
+                </TabsList>
+                
+                <TabsContent value="headers" className="mt-4 space-y-4">
+                  <div className="space-y-2">
+                    <h4 className="text-sm font-medium">Request Headers</h4>
+                    <div className="bg-muted rounded-lg p-4 max-h-[300px] overflow-y-auto">
+                      <pre className="text-xs font-mono whitespace-pre-wrap">
+                        {formatHeaders(selectedRequest.headers)}
+                      </pre>
+                    </div>
+                  </div>
+                </TabsContent>
+                
+                <TabsContent value="body" className="mt-4 space-y-4">
+                  <div className="space-y-2">
+                    <h4 className="text-sm font-medium">Request Body</h4>
+                    <div className="bg-muted rounded-lg p-4 max-h-[300px] overflow-y-auto">
+                      {selectedRequest.body ? (
+                        <pre className="text-xs font-mono whitespace-pre-wrap">
+                          {formatJsonBody(selectedRequest.body)}
+                        </pre>
+                      ) : (
+                        <p className="text-sm text-muted-foreground">No request body</p>
+                      )}
+                    </div>
+                  </div>
+                </TabsContent>
+                
+                <TabsContent value="response" className="mt-4 space-y-4">
+                  <div className="space-y-2">
+                    <h4 className="text-sm font-medium flex items-center gap-2">
+                      Response Body
+                      {selectedRequest.statusCode && (
+                        <Badge variant={getStatusBadgeVariant(selectedRequest.statusCode)} className="text-xs">
+                          {selectedRequest.statusCode}
+                        </Badge>
+                      )}
+                    </h4>
+                    <div className="bg-muted rounded-lg p-4 max-h-[300px] overflow-y-auto">
+                      {selectedRequest.responseBody ? (
+                        <pre className="text-xs font-mono whitespace-pre-wrap">
+                          {formatJsonBody(selectedRequest.responseBody)}
+                        </pre>
+                      ) : selectedRequest.statusCode ? (
+                        <p className="text-sm text-muted-foreground">No response body</p>
+                      ) : (
+                        <p className="text-sm text-destructive">Request failed - no response received</p>
+                      )}
+                    </div>
+                  </div>
+                </TabsContent>
+              </Tabs>
+            </div>
           )}
-        </DialogContent>
-      </Dialog>
+        </SheetContent>
+      </Sheet>
+
+      {/* Resend Dialog */}
+      {webhook && requestToResend && (
+        <ResendDialog
+          open={resendDialogOpen}
+          onOpenChange={setResendDialogOpen}
+          webhook={webhook}
+          request={requestToResend}
+          onResendComplete={onRefresh}
+        />
+      )}
     </div>
   )
 }

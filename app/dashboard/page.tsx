@@ -8,8 +8,21 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Activity, Globe, Clock, CheckCircle, XCircle } from 'lucide-react'
 
+interface Webhook {
+  id: string
+  name: string
+  endpoint: string
+  destinationUrls: string[]
+  destinationUrl?: string
+  isActive: boolean
+  createdAt: string
+  _count?: {
+    requests: number
+  }
+}
+
 function DashboardContent() {
-  const [webhooks, setWebhooks] = useState([])
+  const [webhooks, setWebhooks] = useState<Webhook[]>([])
   const [loading, setLoading] = useState(true)
   const { data: session } = useSession()
   const searchParams = useSearchParams()
@@ -20,10 +33,30 @@ function DashboardContent() {
   const fetchWebhooks = async () => {
     try {
       const response = await fetch('/api/webhooks')
+      
+      if (response.status === 401) {
+        // User is not authenticated, this is expected
+        console.log('User not authenticated')
+        setWebhooks([])
+        setLoading(false)
+        return
+      }
+      
       const data = await response.json()
-      setWebhooks(data)
+      
+      // Ensure data is always an array
+      if (Array.isArray(data)) {
+        setWebhooks(data)
+      } else if (data && data.error) {
+        console.error('API Error:', data.error)
+        setWebhooks([])
+      } else {
+        console.error('Unexpected API response:', data)
+        setWebhooks([])
+      }
     } catch (error) {
       console.error('Error fetching webhooks:', error)
+      setWebhooks([])
     } finally {
       setLoading(false)
     }
@@ -53,9 +86,9 @@ function DashboardContent() {
 
   // Handle special views from sidebar
   if (view === 'status') {
-    const totalRequests = webhooks.reduce((sum: number, webhook: Record<string, unknown>) => sum + ((webhook._count as { requests?: number })?.requests || 0), 0)
-    const activeWebhooks = webhooks.filter((webhook: Record<string, unknown>) => webhook.isActive).length
-    const recentActivity = webhooks.some((webhook: Record<string, unknown>) => ((webhook._count as { requests?: number })?.requests || 0) > 0)
+    const totalRequests = webhooks.reduce((sum: number, webhook: Webhook) => sum + (webhook._count?.requests || 0), 0)
+    const activeWebhooks = webhooks.filter((webhook: Webhook) => webhook.isActive).length
+    const recentActivity = webhooks.some((webhook: Webhook) => (webhook._count?.requests || 0) > 0)
     
     return (
       <div className="space-y-6">
@@ -137,8 +170,8 @@ function DashboardContent() {
               </p>
             ) : (
               <div className="space-y-4">
-                {webhooks.slice(0, 5).map((webhook: Record<string, unknown>) => (
-                  <div key={webhook.id as string} className="flex items-center justify-between p-3 rounded-lg border">
+                {webhooks.slice(0, 5).map((webhook: Webhook) => (
+                  <div key={webhook.id} className="flex items-center justify-between p-3 rounded-lg border">
                     <div className="flex items-center gap-3">
                       {webhook.isActive ? (
                         <CheckCircle className="h-4 w-4 text-green-500" />
@@ -146,9 +179,9 @@ function DashboardContent() {
                         <XCircle className="h-4 w-4 text-gray-500" />
                       )}
                       <div>
-                        <p className="font-medium">{webhook.name as string}</p>
+                        <p className="font-medium">{webhook.name}</p>
                         <p className="text-sm text-muted-foreground">
-                          {((webhook._count as { requests?: number })?.requests || 0)} requests • {webhook.endpoint as string}
+                          {(webhook._count?.requests || 0)} requests • {webhook.endpoint}
                         </p>
                       </div>
                     </div>

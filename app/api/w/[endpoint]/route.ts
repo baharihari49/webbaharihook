@@ -38,43 +38,102 @@ async function handleWebhook(
       },
     })
 
-    let responseStatus = 200
+    let statusCode = 200
     let responseBody = ''
     let error: string | null = null
     let forwardedAt: Date | null = null
+    let responseTime: number | null = null
+    let usedDestinationUrl: string | null = null
 
-    try {
-      const forwardHeaders = { ...headers }
-      delete forwardHeaders['host']
-      delete forwardHeaders['content-length']
+    // Get destination URLs from webhook (handle both old and new format)
+    let destinationUrls: string[] = []
+    
+    if (Array.isArray(webhook.destinationUrls)) {
+      destinationUrls = webhook.destinationUrls.filter((url): url is string => typeof url === 'string')
+    } else if (typeof webhook.destinationUrls === 'string') {
+      destinationUrls = [webhook.destinationUrls]
+    } else if (webhook.destinationUrls) {
+      // Handle case where destinationUrls might be a JSON string
+      try {
+        const parsed = typeof webhook.destinationUrls === 'string' 
+          ? JSON.parse(webhook.destinationUrls) 
+          : webhook.destinationUrls
+        if (Array.isArray(parsed)) {
+          destinationUrls = parsed.filter((url): url is string => typeof url === 'string')
+        }
+      } catch {
+        destinationUrls = []
+      }
+    }
+
+    if (destinationUrls.length === 0) {
+      error = 'No destination URLs configured'
+      statusCode = 500
+    } else {
+      const startTime = Date.now()
       
-      forwardHeaders['x-forwarded-for'] = headers['x-forwarded-for'] || '127.0.0.1'
-      forwardHeaders['x-original-host'] = headers['host'] || ''
+      // Try each destination URL until one succeeds
+      for (let i = 0; i < destinationUrls.length; i++) {
+        const destinationUrl = destinationUrls[i]
+        usedDestinationUrl = destinationUrl
+        
+        try {
+          const forwardHeaders = { ...headers }
+          delete forwardHeaders['host']
+          delete forwardHeaders['content-length']
+          
+          forwardHeaders['x-forwarded-for'] = headers['x-forwarded-for'] || '127.0.0.1'
+          forwardHeaders['x-original-host'] = headers['host'] || ''
 
-      const response = await fetch(webhook.destinationUrl, {
-        method,
-        headers: {
-          ...forwardHeaders,
-          'Content-Type': headers['content-type'] || 'application/json',
-        },
-        body: ['GET', 'HEAD'].includes(method.toUpperCase()) ? undefined : body,
-      })
+          // Add custom headers if configured
+          if (webhook.customHeaders) {
+            const customHeaders = typeof webhook.customHeaders === 'string' 
+              ? JSON.parse(webhook.customHeaders) 
+              : webhook.customHeaders
+            Object.assign(forwardHeaders, customHeaders)
+          }
 
-      responseStatus = response.status
-      responseBody = await response.text()
-      forwardedAt = new Date()
-    } catch (err) {
-      error = err instanceof Error ? err.message : 'Unknown error occurred'
-      responseStatus = 500
+          const response = await fetch(destinationUrl, {
+            method,
+            headers: {
+              ...forwardHeaders,
+              'Content-Type': headers['content-type'] || 'application/json',
+            },
+            body: ['GET', 'HEAD'].includes(method.toUpperCase()) ? undefined : body,
+            signal: AbortSignal.timeout((webhook.timeout || 30) * 1000), // Use webhook timeout
+          })
+
+          statusCode = response.status
+          responseBody = await response.text()
+          forwardedAt = new Date()
+          responseTime = Date.now() - startTime
+          break // Success, stop trying other URLs
+          
+        } catch (err) {
+          error = err instanceof Error ? err.message : 'Unknown error occurred'
+          statusCode = 500
+          responseTime = Date.now() - startTime
+          
+          // If this is the last URL, keep the error. Otherwise, try the next one
+          if (i === destinationUrls.length - 1) {
+            break
+          } else {
+            // Reset error for next attempt
+            error = null
+          }
+        }
+      }
     }
 
     await prisma.request.update({
       where: { id: requestRecord.id },
       data: {
-        responseStatus,
+        statusCode,
         responseBody,
+        responseTime,
         error,
         forwardedAt,
+        destinationUrl: usedDestinationUrl,
       },
     })
 
@@ -86,7 +145,7 @@ async function handleWebhook(
     }
 
     return new NextResponse(responseBody, {
-      status: responseStatus,
+      status: statusCode,
       headers: {
         'Content-Type': 'application/json',
       },

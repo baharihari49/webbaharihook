@@ -71,7 +71,13 @@ export async function PATCH(
     }
 
     const body = await request.json()
-    const { name, destinationUrl, isActive } = body
+    const { name, destinationUrls, destinationUrl, isActive, description, timeout, retryAttempts, customHeaders } = body
+
+    // Handle backward compatibility: if destinationUrl is provided, convert to array
+    let urls = destinationUrls
+    if (!urls && destinationUrl) {
+      urls = [destinationUrl]
+    }
 
     const webhook = await prisma.webhook.update({
       where: { 
@@ -80,8 +86,12 @@ export async function PATCH(
       },
       data: {
         ...(name !== undefined && { name }),
-        ...(destinationUrl !== undefined && { destinationUrl }),
+        ...(urls !== undefined && { destinationUrls: urls }),
         ...(isActive !== undefined && { isActive }),
+        ...(description !== undefined && { description }),
+        ...(timeout !== undefined && { timeout }),
+        ...(retryAttempts !== undefined && { retryAttempts }),
+        ...(customHeaders !== undefined && { customHeaders }),
       },
     })
 

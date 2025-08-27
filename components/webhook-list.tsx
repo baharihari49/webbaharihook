@@ -32,7 +32,8 @@ interface Webhook {
   id: string
   name: string
   endpoint: string
-  destinationUrl: string
+  destinationUrls: string[]
+  destinationUrl?: string  // For backward compatibility
   isActive: boolean
   createdAt: string
   updatedAt?: string
@@ -67,8 +68,8 @@ export function WebhookList({ webhooks, onRefresh, initialAction }: WebhookListP
   React.useEffect(() => {
     if (initialAction === 'create') {
       setFormOpen(true)
-    } else if (initialAction === 'test' && webhooks.length > 0) {
-      setTestingWebhook(webhooks[0])
+    } else if (initialAction === 'test' && (Array.isArray(webhooks) ? webhooks : []).length > 0) {
+      setTestingWebhook((Array.isArray(webhooks) ? webhooks : [])[0])
     }
   }, [initialAction, webhooks])
 
@@ -87,7 +88,7 @@ export function WebhookList({ webhooks, onRefresh, initialAction }: WebhookListP
     navigator.clipboard.writeText(text)
   }
 
-  const handleCreate = async (data: { name: string; destinationUrl: string }) => {
+  const handleCreate = async (data: { name: string; destinationUrls: string[]; description?: string; timeout?: number; retryAttempts?: number; isActive?: boolean; customHeaders?: Record<string, string> }) => {
     const response = await fetch('/api/webhooks', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -99,7 +100,7 @@ export function WebhookList({ webhooks, onRefresh, initialAction }: WebhookListP
     }
   }
 
-  const handleEdit = async (data: { name: string; destinationUrl: string }) => {
+  const handleEdit = async (data: { name: string; destinationUrls: string[]; description?: string; timeout?: number; retryAttempts?: number; isActive?: boolean; customHeaders?: Record<string, string> }) => {
     if (!editingWebhook) return
 
     const response = await fetch(`/api/webhooks/${editingWebhook.id}`, {
@@ -144,7 +145,7 @@ export function WebhookList({ webhooks, onRefresh, initialAction }: WebhookListP
     setTimeout(() => setIsRefreshing(false), 500)
   }
 
-  const filteredAndSortedWebhooks = webhooks
+  const filteredAndSortedWebhooks = (Array.isArray(webhooks) ? webhooks : [])
     .filter(webhook => {
       const matchesSearch = webhook.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                            webhook.endpoint.toLowerCase().includes(searchTerm.toLowerCase())
@@ -199,17 +200,17 @@ export function WebhookList({ webhooks, onRefresh, initialAction }: WebhookListP
           <div className="flex gap-4 mt-3">
             <div className="flex items-center gap-2 text-sm">
               <Activity className="h-4 w-4 text-blue-500" />
-              <span className="font-medium">{webhooks.length}</span>
+              <span className="font-medium">{(Array.isArray(webhooks) ? webhooks : []).length}</span>
               <span className="text-muted-foreground">Total</span>
             </div>
             <div className="flex items-center gap-2 text-sm">
               <CheckCircle className="h-4 w-4 text-green-500" />
-              <span className="font-medium">{webhooks.filter(w => w.isActive).length}</span>
+              <span className="font-medium">{(Array.isArray(webhooks) ? webhooks : []).filter(w => w.isActive).length}</span>
               <span className="text-muted-foreground">Active</span>
             </div>
             <div className="flex items-center gap-2 text-sm">
               <TrendingUp className="h-4 w-4 text-orange-500" />
-              <span className="font-medium">{webhooks.reduce((sum, w) => sum + (w._count?.requests || 0), 0)}</span>
+              <span className="font-medium">{(Array.isArray(webhooks) ? webhooks : []).reduce((sum, w) => sum + (w._count?.requests || 0), 0)}</span>
               <span className="text-muted-foreground">Total Requests</span>
             </div>
           </div>
@@ -348,26 +349,31 @@ export function WebhookList({ webhooks, onRefresh, initialAction }: WebhookListP
                 </div>
                 
                 <div className="space-y-1">
-                  <p className="text-xs font-medium text-muted-foreground">DESTINATION URL</p>
-                  <div className="flex items-center gap-2">
-                    <code className="relative rounded bg-muted px-2 py-1 font-mono text-xs break-all flex-1">
-                      {webhook.destinationUrl}
-                    </code>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      className="h-7 w-7 shrink-0"
-                      asChild
-                    >
-                      <a
-                        href={webhook.destinationUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
+                  <p className="text-xs font-medium text-muted-foreground">DESTINATION URLS</p>
+                  {(webhook.destinationUrls || [webhook.destinationUrl]).filter(Boolean).map((url, index) => (
+                    <div key={index} className="flex items-center gap-2">
+                      <code className="relative rounded bg-muted px-2 py-1 font-mono text-xs break-all flex-1">
+                        {url}
+                        {index === 0 && webhook.destinationUrls && webhook.destinationUrls.length > 1 && (
+                          <span className="ml-1 text-blue-600 font-semibold">(Primary)</span>
+                        )}
+                      </code>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-7 w-7 shrink-0"
+                        asChild
                       >
-                        <ExternalLink className="h-3 w-3" />
-                      </a>
-                    </Button>
-                  </div>
+                        <a
+                          href={url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          <ExternalLink className="h-3 w-3" />
+                        </a>
+                      </Button>
+                    </div>
+                  ))}
                 </div>
               </div>
 
@@ -452,7 +458,7 @@ export function WebhookList({ webhooks, onRefresh, initialAction }: WebhookListP
           onSubmit={handleEdit}
           initialData={{
             name: editingWebhook.name,
-            destinationUrl: editingWebhook.destinationUrl,
+            destinationUrls: editingWebhook.destinationUrls || [editingWebhook.destinationUrl].filter(Boolean),
           }}
         />
       )}

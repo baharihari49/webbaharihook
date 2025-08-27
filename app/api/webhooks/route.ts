@@ -48,11 +48,14 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { name, destinationUrl } = body
+    const { name, destinationUrls, destinationUrl, description, timeout, retryAttempts, isActive, customHeaders } = body
 
-    if (!name || !destinationUrl) {
+    // Handle backward compatibility
+    const urls = destinationUrls || (destinationUrl ? [destinationUrl] : null)
+
+    if (!name || !urls || urls.length === 0) {
       return NextResponse.json(
-        { error: 'Name and destination URL are required' },
+        { error: 'Name and at least one destination URL are required' },
         { status: 400 }
       )
     }
@@ -63,8 +66,13 @@ export async function POST(request: NextRequest) {
       data: {
         name,
         endpoint,
-        destinationUrl,
+        destinationUrls: urls,
         userId: session.user.id,
+        ...(description && { description }),
+        ...(timeout !== undefined && { timeout }),
+        ...(retryAttempts !== undefined && { retryAttempts }),
+        ...(isActive !== undefined && { isActive }),
+        ...(customHeaders && { customHeaders }),
       },
     })
 
