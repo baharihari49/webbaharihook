@@ -15,34 +15,11 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
 
-interface Webhook {
-  id: string
-  name: string
-  endpoint: string
-  destinationUrl: string
-  isActive: boolean
-  createdAt: string
-  updatedAt: string
-  _count: {
-    requests: number
-  }
-}
-
-interface Request {
-  id: string
-  method: string
-  headers: Record<string, unknown>
-  body: string
-  statusCode: number | null
-  responseBody: string | null
-  receivedAt: string
-  forwardedAt: string | null
-  responseTime: number | null
-}
+import { WebhookWithCount, WebhookRequest } from '@/types/webhook'
 
 interface WebhookAnalyticsProps {
-  webhook: Webhook
-  requests: Request[]
+  webhook: WebhookWithCount
+  requests: WebhookRequest[]
 }
 
 export function WebhookAnalytics({ webhook, requests }: WebhookAnalyticsProps) {

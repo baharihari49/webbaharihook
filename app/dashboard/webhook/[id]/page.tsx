@@ -24,37 +24,14 @@ import { WebhookTestDialog } from '@/components/webhook-test-dialog'
 import { RequestHistoryViewer } from '@/components/request-history-viewer'
 import { WebhookAnalytics } from '@/components/webhook-analytics'
 
-interface Webhook {
-  id: string
-  name: string
-  endpoint: string
-  destinationUrl: string
-  isActive: boolean
-  createdAt: string
-  updatedAt: string
-  _count?: {
-    requests: number
-  }
-}
-
-interface Request {
-  id: string
-  method: string
-  headers: Record<string, unknown>
-  body: string
-  statusCode: number | null
-  responseBody: string | null
-  receivedAt: string
-  forwardedAt: string | null
-  responseTime: number | null
-}
+import { WebhookWithCount, WebhookRequest } from '@/types/webhook'
 
 export default function WebhookDetailPage() {
   const params = useParams()
   const router = useRouter()
   const { data: session } = useSession()
-  const [webhook, setWebhook] = useState<Webhook | null>(null)
-  const [requests, setRequests] = useState<Request[]>([])
+  const [webhook, setWebhook] = useState<WebhookWithCount | null>(null)
+  const [requests, setRequests] = useState<WebhookRequest[]>([])
   const [loading, setLoading] = useState(true)
   const [editFormOpen, setEditFormOpen] = useState(false)
   const [testDialogOpen, setTestDialogOpen] = useState(false)
@@ -240,7 +217,7 @@ export default function WebhookDetailPage() {
             <Activity className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{webhook._count.requests}</div>
+            <div className="text-2xl font-bold">{webhook._count?.requests || 0}</div>
             <p className="text-xs text-muted-foreground">
               All time requests
             </p>
