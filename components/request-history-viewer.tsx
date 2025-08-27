@@ -34,8 +34,8 @@ import { WebhookRequest } from '@/types/webhook'
 interface WebhookWithDestinations {
   id: string
   name: string
-  destinationUrls: string[]
-  destinationUrl?: string // For backward compatibility
+  destinationUrls?: string[] | null
+  destinationUrl?: string | null // For backward compatibility
 }
 
 interface RequestHistoryViewerProps {

@@ -27,7 +27,8 @@ model Webhook {
   id            String    @id @default(cuid())
   name          String
   endpoint      String    @unique // Public endpoint URL (e.g., /w/abc123)
-  destinationUrls Json    // Array of target webhook URLs to forward to
+  destinationUrl String?  // Legacy single destination URL (for backward compatibility)
+  destinationUrls Json?   // Array of target webhook URLs to forward to
   description   String?   // Optional description
   timeout       Int       @default(30) // Timeout in seconds
   retryAttempts Int       @default(3) // Number of retry attempts

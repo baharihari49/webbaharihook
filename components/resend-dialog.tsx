@@ -20,8 +20,8 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 interface WebhookWithDestinations {
   id: string
   name: string
-  destinationUrls: string[]
-  destinationUrl?: string // For backward compatibility
+  destinationUrls?: string[] | null
+  destinationUrl?: string | null // For backward compatibility
 }
 
 interface WebhookRequest {
@@ -61,7 +61,7 @@ export function ResendDialog({
   const [showResults, setShowResults] = useState(false)
 
   // Get all destination URLs (handle both new and old format)
-  const allDestinationUrls = webhook.destinationUrls && webhook.destinationUrls.length > 0
+  const allDestinationUrls = (webhook.destinationUrls && webhook.destinationUrls.length > 0)
     ? webhook.destinationUrls
     : webhook.destinationUrl ? [webhook.destinationUrl] : []
 

@@ -32,8 +32,12 @@ interface Webhook {
   id: string
   name: string
   endpoint: string
-  destinationUrls: string[]
-  destinationUrl?: string  // For backward compatibility
+  destinationUrls?: string[] | null
+  destinationUrl?: string | null  // For backward compatibility
+  description?: string | null
+  timeout?: number
+  retryAttempts?: number
+  customHeaders?: Record<string, unknown> | null
   isActive: boolean
   createdAt: string
   updatedAt?: string
@@ -350,7 +354,7 @@ export function WebhookList({ webhooks, onRefresh, initialAction }: WebhookListP
                 
                 <div className="space-y-1">
                   <p className="text-xs font-medium text-muted-foreground">DESTINATION URLS</p>
-                  {(webhook.destinationUrls || [webhook.destinationUrl]).filter(Boolean).map((url, index) => (
+                  {(webhook.destinationUrls || (webhook.destinationUrl ? [webhook.destinationUrl] : [])).filter(Boolean).map((url: string, index: number) => (
                     <div key={index} className="flex items-center gap-2">
                       <code className="relative rounded bg-muted px-2 py-1 font-mono text-xs break-all flex-1">
                         {url}
@@ -458,7 +462,7 @@ export function WebhookList({ webhooks, onRefresh, initialAction }: WebhookListP
           onSubmit={handleEdit}
           initialData={{
             name: editingWebhook.name,
-            destinationUrls: editingWebhook.destinationUrls || [editingWebhook.destinationUrl].filter(Boolean),
+            destinationUrls: editingWebhook.destinationUrls || (editingWebhook.destinationUrl ? [editingWebhook.destinationUrl] : []),
           }}
         />
       )}

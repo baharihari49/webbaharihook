@@ -4,8 +4,12 @@ export interface WebhookBase {
   id: string
   name: string
   endpoint: string
-  destinationUrls: string[]
-  destinationUrl?: string // For backward compatibility
+  destinationUrls?: string[] | null
+  destinationUrl?: string | null // For backward compatibility
+  description?: string | null
+  timeout?: number
+  retryAttempts?: number
+  customHeaders?: Record<string, unknown> | null
   isActive: boolean
   createdAt: string
   updatedAt: string

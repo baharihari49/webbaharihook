@@ -60,22 +60,27 @@ export async function POST(
     
     if (resendAll) {
       // Resend to all destination URLs
-      if (Array.isArray(webhook.destinationUrls)) {
-        urlsToResend = webhook.destinationUrls.filter((url): url is string => typeof url === 'string')
-      } else if (typeof webhook.destinationUrls === 'string') {
-        urlsToResend = [webhook.destinationUrls]
-      } else if (webhook.destinationUrls) {
-        // Handle case where destinationUrls might be a JSON string or other format
-        try {
-          const parsed = typeof webhook.destinationUrls === 'string' 
-            ? JSON.parse(webhook.destinationUrls) 
-            : webhook.destinationUrls
-          if (Array.isArray(parsed)) {
-            urlsToResend = parsed.filter((url): url is string => typeof url === 'string')
+      if (webhook.destinationUrls) {
+        if (Array.isArray(webhook.destinationUrls)) {
+          urlsToResend = webhook.destinationUrls.filter((url): url is string => typeof url === 'string')
+        } else if (typeof webhook.destinationUrls === 'string') {
+          urlsToResend = [webhook.destinationUrls]
+        } else {
+          // Handle case where destinationUrls might be a JSON string or other format
+          try {
+            const parsed = typeof webhook.destinationUrls === 'string' 
+              ? JSON.parse(webhook.destinationUrls) 
+              : webhook.destinationUrls
+            if (Array.isArray(parsed)) {
+              urlsToResend = parsed.filter((url): url is string => typeof url === 'string')
+            }
+          } catch {
+            urlsToResend = []
           }
-        } catch {
-          urlsToResend = []
         }
+      } else if (webhook.destinationUrl) {
+        // Fallback to legacy single destination URL
+        urlsToResend = [webhook.destinationUrl]
       }
     } else if (destinationUrls && Array.isArray(destinationUrls)) {
       // Resend to specific URLs

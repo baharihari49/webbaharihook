@@ -12,8 +12,12 @@ interface Webhook {
   id: string
   name: string
   endpoint: string
-  destinationUrls: string[]
-  destinationUrl?: string
+  destinationUrls?: string[] | null
+  destinationUrl?: string | null
+  description?: string | null
+  timeout?: number
+  retryAttempts?: number
+  customHeaders?: Record<string, unknown> | null
   isActive: boolean
   createdAt: string
   _count?: {

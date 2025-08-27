@@ -48,22 +48,27 @@ async function handleWebhook(
     // Get destination URLs from webhook (handle both old and new format)
     let destinationUrls: string[] = []
     
-    if (Array.isArray(webhook.destinationUrls)) {
-      destinationUrls = webhook.destinationUrls.filter((url): url is string => typeof url === 'string')
-    } else if (typeof webhook.destinationUrls === 'string') {
-      destinationUrls = [webhook.destinationUrls]
-    } else if (webhook.destinationUrls) {
-      // Handle case where destinationUrls might be a JSON string
-      try {
-        const parsed = typeof webhook.destinationUrls === 'string' 
-          ? JSON.parse(webhook.destinationUrls) 
-          : webhook.destinationUrls
-        if (Array.isArray(parsed)) {
-          destinationUrls = parsed.filter((url): url is string => typeof url === 'string')
+    if (webhook.destinationUrls) {
+      if (Array.isArray(webhook.destinationUrls)) {
+        destinationUrls = webhook.destinationUrls.filter((url): url is string => typeof url === 'string')
+      } else if (typeof webhook.destinationUrls === 'string') {
+        destinationUrls = [webhook.destinationUrls]
+      } else {
+        // Handle case where destinationUrls might be a JSON string or other format
+        try {
+          const parsed = typeof webhook.destinationUrls === 'string' 
+            ? JSON.parse(webhook.destinationUrls) 
+            : webhook.destinationUrls
+          if (Array.isArray(parsed)) {
+            destinationUrls = parsed.filter((url): url is string => typeof url === 'string')
+          }
+        } catch {
+          destinationUrls = []
         }
-      } catch {
-        destinationUrls = []
       }
+    } else if (webhook.destinationUrl) {
+      // Fallback to legacy single destination URL
+      destinationUrls = [webhook.destinationUrl]
     }
 
     if (destinationUrls.length === 0) {

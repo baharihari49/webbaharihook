@@ -349,7 +349,7 @@ export default function WebhookDetailPage() {
               
               <div className="space-y-2">
                 <p className="text-sm font-medium">Destination URLs</p>
-                {(webhook.destinationUrls || [webhook.destinationUrl]).filter(Boolean).map((url: string, index: number) => (
+                {(webhook.destinationUrls || (webhook.destinationUrl ? [webhook.destinationUrl] : [])).filter(Boolean).map((url: string, index: number) => (
                   <div key={index} className="flex items-center gap-2">
                     <code className="relative rounded bg-muted px-2 py-1 font-mono text-xs break-all flex-1">
                       {url}
@@ -484,7 +484,7 @@ export default function WebhookDetailPage() {
           onSubmit={handleEdit}
           initialData={{
             name: webhook.name,
-            destinationUrls: webhook.destinationUrls || [webhook.destinationUrl].filter(Boolean),
+            destinationUrls: webhook.destinationUrls || (webhook.destinationUrl ? [webhook.destinationUrl] : []),
           }}
         />
       )}
