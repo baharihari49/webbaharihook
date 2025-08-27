@@ -56,6 +56,11 @@ npm install
 ```bash
 # Copy environment file
 cp .env.production .env
+# Or use example template
+cp .env.example .env
+
+# Generate secure secret
+openssl rand -base64 32
 
 # Edit environment variables
 nano .env
@@ -64,18 +69,19 @@ nano .env
 Update `.env` dengan domain kamu:
 ```env
 NODE_ENV=production
-HOST=0.0.0.0
-PORT=3001
+HOST=127.0.0.1
+PORT=3018
 
 # Domain Configuration (GANTI DENGAN DOMAIN KAMU)
 NEXTAUTH_URL=https://yourdomain.com
 NEXT_PUBLIC_APP_URL=https://yourdomain.com
 
-# Security (GENERATE SECRET BARU)
-NEXTAUTH_SECRET=your-super-secret-key-here-minimum-32-characters
+# Security (USE GENERATED SECRET)
+NEXTAUTH_SECRET=[paste_generated_secret_here]
+NEXTAUTH_TRUST_HOST=true
 
 # Database
-DATABASE_URL=mysql://bahari:Seniati12345@localhost:3306/webhook
+DATABASE_URL=mysql://bahari:Seniati12345@172.28.1.12:3306/webhook
 
 LOG_LEVEL=info
 LOG_FORMAT=combined
