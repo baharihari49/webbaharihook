@@ -1,3 +1,4 @@
+// ecosystem.config.js
 module.exports = {
   apps: [
     {
@@ -7,12 +8,14 @@ module.exports = {
       autorestart: true,
       watch: false,
       max_memory_restart: '1G',
+      env: {
+        NODE_ENV: 'production',
+        PORT: 3018,
+      },
       error_file: './logs/err.log',
       out_file: './logs/out.log',
       log_file: './logs/combined.log',
-      time: true,
-      // PM2 akan otomatis load .env file
-      env_file: '.env'
+      time: true
     }
-  ]
+  ],
 };
