@@ -38,9 +38,8 @@ export default function LoginPage() {
 
       if (result?.error) {
         setError('Invalid email or password')
-      } else {
-        // Wait for session to be updated
-        await getSession()
+      } else if (result?.ok) {
+        // Use Next.js router for client-side navigation
         router.push('/dashboard')
         router.refresh()
       }

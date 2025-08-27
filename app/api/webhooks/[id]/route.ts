@@ -29,6 +29,11 @@ export async function GET(
           orderBy: { receivedAt: 'desc' },
           take: 20,
         },
+        _count: {
+          select: {
+            requests: true
+          }
+        }
       },
     })
 

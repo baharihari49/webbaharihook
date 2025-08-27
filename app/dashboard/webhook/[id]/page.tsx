@@ -32,7 +32,7 @@ interface Webhook {
   isActive: boolean
   createdAt: string
   updatedAt: string
-  _count: {
+  _count?: {
     requests: number
   }
 }
@@ -205,7 +205,7 @@ export default function WebhookDetailPage() {
             </div>
           </div>
           <p className="text-muted-foreground">
-            Created {new Date(webhook.createdAt).toLocaleDateString()} • {webhook._count.requests} total requests
+            Created {new Date(webhook.createdAt).toLocaleDateString()} • {webhook._count?.requests || 0} total requests
           </p>
         </div>
         
