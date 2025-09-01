@@ -25,8 +25,32 @@ async function handleWebhook(
       headers[key] = value
     })
 
-    const body = await request.text()
+    // Read body once and store it
+    let body = ''
+    const contentType = headers['content-type'] || ''
+    
+    try {
+      if (!['GET', 'HEAD', 'OPTIONS'].includes(method.toUpperCase())) {
+        body = await request.text()
+      }
+    } catch (error) {
+      console.error('Error reading request body:', error)
+      body = ''
+    }
+    
     const query = Object.fromEntries(request.nextUrl.searchParams)
+
+    // Debug logging
+    console.log(`🚀 Webhook ${endpoint} - ${method}:`)
+    console.log(`- Headers:`, Object.keys(headers))
+    console.log(`- Body length:`, body.length)
+    console.log(`- Content-Type:`, contentType)
+    console.log(`- Query params:`, Object.keys(query))
+    if (body.length > 0 && body.length < 1000) {
+      console.log(`- Body content:`, body)
+    } else if (body.length > 0) {
+      console.log(`- Body preview (first 500 chars):`, body.substring(0, 500))
+    }
 
     const requestRecord = await prisma.request.create({
       data: {
@@ -84,34 +108,83 @@ async function handleWebhook(
         
         try {
           const forwardHeaders = { ...headers }
+          
+          // Remove headers that shouldn't be forwarded
           delete forwardHeaders['host']
           delete forwardHeaders['content-length']
+          delete forwardHeaders['x-forwarded-host']
+          delete forwardHeaders['x-forwarded-port']
+          delete forwardHeaders['x-original-host']
+          delete forwardHeaders['x-resend']
+          delete forwardHeaders['x-original-request-id']
+          delete forwardHeaders['content-type'] // Remove original to avoid duplication
           
+          // Set forwarding headers
           forwardHeaders['x-forwarded-for'] = headers['x-forwarded-for'] || '127.0.0.1'
           forwardHeaders['x-original-host'] = headers['host'] || ''
+          forwardHeaders['x-webhook-source'] = 'webbaharihook'
+
+          // Handle content-type properly
+          let forwardContentType = contentType
+          if (forwardContentType) {
+            // Remove duplicates and clean up
+            forwardContentType = forwardContentType.split(',')[0].trim()
+          } else {
+            forwardContentType = 'application/json'
+          }
 
           // Add custom headers if configured
           if (webhook.customHeaders) {
-            const customHeaders = typeof webhook.customHeaders === 'string' 
-              ? JSON.parse(webhook.customHeaders) 
-              : webhook.customHeaders
-            Object.assign(forwardHeaders, customHeaders)
+            try {
+              const customHeaders = typeof webhook.customHeaders === 'string' 
+                ? JSON.parse(webhook.customHeaders) 
+                : webhook.customHeaders
+              if (customHeaders && typeof customHeaders === 'object') {
+                Object.assign(forwardHeaders, customHeaders)
+              }
+            } catch (e) {
+              console.warn('Invalid custom headers:', webhook.customHeaders)
+            }
+          }
+
+          // Prepare request body - use cloned request to get fresh body stream
+          let requestBody = undefined
+          if (!['GET', 'HEAD'].includes(method.toUpperCase()) && body) {
+            // Use the original body string we saved
+            requestBody = body
+          }
+
+          // Debug logging for forwarding
+          console.log(`📤 Forwarding to: ${destinationUrl}`)
+          console.log(`- Method: ${method}`)
+          console.log(`- Content-Type: ${forwardContentType}`)
+          console.log(`- Body length: ${requestBody ? requestBody.length : 0}`)
+          console.log(`- Request body type: ${typeof requestBody}`)
+          console.log(`- Headers: ${Object.keys(forwardHeaders).join(', ')}`)
+          if (requestBody && requestBody.length < 500) {
+            console.log(`- Request body: ${requestBody}`)
           }
 
           const response = await fetch(destinationUrl, {
             method,
             headers: {
               ...forwardHeaders,
-              'Content-Type': headers['content-type'] || 'application/json',
+              'Content-Type': forwardContentType,
             },
-            body: ['GET', 'HEAD'].includes(method.toUpperCase()) ? undefined : body,
-            signal: AbortSignal.timeout((webhook.timeout || 30) * 1000), // Use webhook timeout
+            body: requestBody,
+            signal: AbortSignal.timeout((webhook.timeout || 30) * 1000),
           })
 
           statusCode = response.status
           responseBody = await response.text()
           forwardedAt = new Date()
           responseTime = Date.now() - startTime
+          
+          console.log(`✅ Response from ${destinationUrl}:`)
+          console.log(`- Status: ${statusCode}`)
+          console.log(`- Response Time: ${responseTime}ms`)
+          console.log(`- Response Body: ${responseBody.substring(0, 500)}`)
+          
           break // Success, stop trying other URLs
           
         } catch (err) {

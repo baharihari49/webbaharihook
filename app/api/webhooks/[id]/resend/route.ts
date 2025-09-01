@@ -55,6 +55,15 @@ export async function POST(
     const headers = JSON.parse(originalRequest.headers)
     const query = JSON.parse(originalRequest.query)
     
+    // Debug logging for resend
+    console.log(`Resend request ${requestId}:`)
+    console.log(`- Original method: ${originalRequest.method}`)
+    console.log(`- Original body length: ${originalRequest.body?.length || 0}`)
+    console.log(`- Original body type: ${typeof originalRequest.body}`)
+    if (originalRequest.body && originalRequest.body.length < 500) {
+      console.log(`- Original body preview: ${originalRequest.body}`)
+    }
+    
     // Determine which URLs to resend to
     let urlsToResend: string[] = []
     
@@ -104,37 +113,78 @@ export async function POST(
 
       try {
         const forwardHeaders = { ...headers }
+        
+        // Remove headers that shouldn't be forwarded
         delete forwardHeaders['host']
         delete forwardHeaders['content-length']
+        delete forwardHeaders['x-forwarded-host']
+        delete forwardHeaders['x-forwarded-port']
+        delete forwardHeaders['x-original-host']
+        delete forwardHeaders['content-type'] // Remove original to avoid duplication
         
+        // Set forwarding headers for resend
         forwardHeaders['x-forwarded-for'] = headers['x-forwarded-for'] || '127.0.0.1'
         forwardHeaders['x-original-host'] = headers['host'] || ''
         forwardHeaders['x-resend'] = 'true'
         forwardHeaders['x-original-request-id'] = requestId
+        forwardHeaders['x-webhook-source'] = 'webbaharihook-resend'
+
+        // Handle content-type properly
+        let contentType = headers['content-type']
+        if (contentType) {
+          // Remove duplicates and clean up
+          contentType = contentType.split(',')[0].trim()
+        } else {
+          contentType = 'application/json'
+        }
 
         // Add custom headers if configured
         if (webhook.customHeaders) {
-          const customHeaders = typeof webhook.customHeaders === 'string' 
-            ? JSON.parse(webhook.customHeaders) 
-            : webhook.customHeaders
-          Object.assign(forwardHeaders, customHeaders)
+          try {
+            const customHeaders = typeof webhook.customHeaders === 'string' 
+              ? JSON.parse(webhook.customHeaders) 
+              : webhook.customHeaders
+            if (customHeaders && typeof customHeaders === 'object') {
+              Object.assign(forwardHeaders, customHeaders)
+            }
+          } catch (e) {
+            console.warn('Invalid custom headers:', webhook.customHeaders)
+          }
+        }
+
+        // Prepare request body
+        let requestBody = undefined
+        if (!['GET', 'HEAD'].includes(originalRequest.method.toUpperCase()) && originalRequest.body) {
+          requestBody = originalRequest.body
+        }
+
+        console.log(`📤 Resending to: ${destinationUrl}`)
+        console.log(`- Method: ${originalRequest.method}`)
+        console.log(`- Content-Type: ${contentType}`)
+        console.log(`- Body length: ${requestBody ? requestBody.length : 0}`)
+        console.log(`- Request body type: ${typeof requestBody}`)
+        if (requestBody && requestBody.length < 500) {
+          console.log(`- Request body: ${requestBody}`)
         }
 
         const response = await fetch(destinationUrl, {
           method: originalRequest.method,
           headers: {
             ...forwardHeaders,
-            'Content-Type': headers['content-type'] || 'application/json',
+            'Content-Type': contentType,
           },
-          body: ['GET', 'HEAD'].includes(originalRequest.method.toUpperCase()) 
-            ? undefined 
-            : originalRequest.body,
+          body: requestBody,
           signal: AbortSignal.timeout((webhook.timeout || 30) * 1000),
         })
 
         statusCode = response.status
         responseBody = await response.text()
         responseTime = Date.now() - startTime
+        
+        console.log(`✅ Resend Response from ${destinationUrl}:`)
+        console.log(`- Status: ${statusCode}`)
+        console.log(`- Response Time: ${responseTime}ms`)
+        console.log(`- Response Body: ${responseBody.substring(0, 500)}`)
 
       } catch (err) {
         error = err instanceof Error ? err.message : 'Unknown error occurred'
