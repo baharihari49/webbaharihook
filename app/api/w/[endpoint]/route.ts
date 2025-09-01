@@ -19,6 +19,17 @@ async function handleWebhook(
         { status: 404 }
       )
     }
+    
+    // Check if method is allowed
+    const allowedMethods = webhook.allowedMethods as string[] | null
+    if (allowedMethods && allowedMethods.length > 0) {
+      if (!allowedMethods.includes(method.toUpperCase())) {
+        return NextResponse.json(
+          { error: `Method ${method} not allowed. Allowed methods: ${allowedMethods.join(', ')}` },
+          { status: 405 }
+        )
+      }
+    }
 
     const headers: Record<string, string> = {}
     request.headers.forEach((value, key) => {
@@ -287,4 +298,12 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ e
 
 export async function DELETE(request: NextRequest, context: { params: Promise<{ endpoint: string }> }) {
   return handleWebhook(request, context, 'DELETE')
+}
+
+export async function HEAD(request: NextRequest, context: { params: Promise<{ endpoint: string }> }) {
+  return handleWebhook(request, context, 'HEAD')
+}
+
+export async function OPTIONS(request: NextRequest, context: { params: Promise<{ endpoint: string }> }) {
+  return handleWebhook(request, context, 'OPTIONS')
 }

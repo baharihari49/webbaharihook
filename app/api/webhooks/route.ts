@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { name, destinationUrls, destinationUrl, description, timeout, retryAttempts, isActive, customHeaders } = body
+    const { name, destinationUrls, destinationUrl, allowedMethods, description, timeout, retryAttempts, isActive, customHeaders } = body
 
     // Handle backward compatibility
     const urls = destinationUrls || (destinationUrl ? [destinationUrl] : null)
@@ -67,6 +67,7 @@ export async function POST(request: NextRequest) {
         name,
         endpoint,
         destinationUrls: urls,
+        allowedMethods: allowedMethods || ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
         userId: session.user.id,
         ...(description && { description }),
         ...(timeout !== undefined && { timeout }),

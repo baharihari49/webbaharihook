@@ -6,6 +6,7 @@ export interface WebhookBase {
   endpoint: string
   destinationUrls?: string[] | null
   destinationUrl?: string | null // For backward compatibility
+  allowedMethods?: string[] | null
   description?: string | null
   timeout?: number
   retryAttempts?: number

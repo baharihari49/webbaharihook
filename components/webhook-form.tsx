@@ -43,6 +43,7 @@ interface WebhookFormProps {
   onSubmit: (data: { 
     name: string
     destinationUrls: string[]
+    allowedMethods?: string[]
     description?: string
     timeout?: number
     retryAttempts?: number
@@ -52,6 +53,7 @@ interface WebhookFormProps {
   initialData?: { 
     name: string
     destinationUrls: string[]
+    allowedMethods?: string[]
     description?: string
     timeout?: number
     retryAttempts?: number
@@ -74,6 +76,7 @@ export function WebhookForm({ open, onOpenChange, onSubmit, initialData }: Webho
   const [name, setName] = useState(initialData?.name || '')
   const [destinationUrls, setDestinationUrls] = useState<string[]>(initialData?.destinationUrls || [''])
   const [description, setDescription] = useState(initialData?.description || '')
+  const [allowedMethods, setAllowedMethods] = useState<string[]>(initialData?.allowedMethods || ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'])
   const [timeout, setTimeout] = useState(initialData?.timeout || 30)
   const [retryAttempts, setRetryAttempts] = useState(initialData?.retryAttempts || 3)
   const [isActive, setIsActive] = useState(initialData?.isActive ?? true)
@@ -81,6 +84,16 @@ export function WebhookForm({ open, onOpenChange, onSubmit, initialData }: Webho
   const [showAdvanced, setShowAdvanced] = useState(false)
   const [loading, setLoading] = useState(false)
   const [generatingUrl, setGeneratingUrl] = useState(false)
+  
+  const availableMethods = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS']
+  
+  const toggleMethod = (method: string) => {
+    if (allowedMethods.includes(method)) {
+      setAllowedMethods(allowedMethods.filter(m => m !== method))
+    } else {
+      setAllowedMethods([...allowedMethods, method])
+    }
+  }
 
   const addDestinationUrl = () => {
     setDestinationUrls([...destinationUrls, ''])
@@ -147,6 +160,7 @@ export function WebhookForm({ open, onOpenChange, onSubmit, initialData }: Webho
       await onSubmit({ 
         name, 
         destinationUrls: destinationUrls.filter(url => url.trim() !== ''),
+        allowedMethods: allowedMethods.length > 0 ? allowedMethods : undefined,
         description: description || undefined,
         timeout,
         retryAttempts,
@@ -204,6 +218,29 @@ export function WebhookForm({ open, onOpenChange, onSubmit, initialData }: Webho
                   placeholder="Brief description of what this webhook does..."
                   rows={2}
                 />
+              </div>
+
+              <div className="grid gap-2">
+                <Label>Allowed HTTP Methods</Label>
+                <div className="flex flex-wrap gap-2">
+                  {availableMethods.map((method) => (
+                    <label
+                      key={method}
+                      className="flex items-center space-x-2 cursor-pointer"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={allowedMethods.includes(method)}
+                        onChange={() => toggleMethod(method)}
+                        className="rounded border-gray-300 text-primary focus:ring-primary"
+                      />
+                      <span className="text-sm font-medium">{method}</span>
+                    </label>
+                  ))}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Select which HTTP methods this webhook will accept
+                </p>
               </div>
 
               <div className="grid gap-2">

@@ -71,7 +71,7 @@ export async function PATCH(
     }
 
     const body = await request.json()
-    const { name, destinationUrls, destinationUrl, isActive, description, timeout, retryAttempts, customHeaders } = body
+    const { name, destinationUrls, destinationUrl, allowedMethods, isActive, description, timeout, retryAttempts, customHeaders } = body
 
     // Handle backward compatibility: if destinationUrl is provided, convert to array
     let urls = destinationUrls
@@ -87,6 +87,7 @@ export async function PATCH(
       data: {
         ...(name !== undefined && { name }),
         ...(urls !== undefined && { destinationUrls: urls }),
+        ...(allowedMethods !== undefined && { allowedMethods }),
         ...(isActive !== undefined && { isActive }),
         ...(description !== undefined && { description }),
         ...(timeout !== undefined && { timeout }),
