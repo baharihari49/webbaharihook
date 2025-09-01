@@ -120,7 +120,6 @@ export async function POST(
         delete forwardHeaders['x-forwarded-host']
         delete forwardHeaders['x-forwarded-port']
         delete forwardHeaders['x-original-host']
-        delete forwardHeaders['content-type'] // Remove original to avoid duplication
         
         // Set forwarding headers for resend
         forwardHeaders['x-forwarded-for'] = headers['x-forwarded-for'] || '127.0.0.1'
@@ -129,7 +128,7 @@ export async function POST(
         forwardHeaders['x-original-request-id'] = requestId
         forwardHeaders['x-webhook-source'] = 'webbaharihook-resend'
 
-        // Handle content-type properly
+        // Handle content-type properly - clean and set it
         let contentType = headers['content-type']
         if (contentType) {
           // Remove duplicates and clean up
@@ -137,6 +136,10 @@ export async function POST(
         } else {
           contentType = 'application/json'
         }
+        
+        // Remove the original content-type and set the clean one
+        delete forwardHeaders['content-type']
+        forwardHeaders['content-type'] = contentType
 
         // Add custom headers if configured
         if (webhook.customHeaders) {
@@ -169,10 +172,7 @@ export async function POST(
 
         const response = await fetch(destinationUrl, {
           method: originalRequest.method,
-          headers: {
-            ...forwardHeaders,
-            'Content-Type': contentType,
-          },
+          headers: forwardHeaders, // Headers already include cleaned content-type
           body: requestBody,
           signal: AbortSignal.timeout((webhook.timeout || 30) * 1000),
         })

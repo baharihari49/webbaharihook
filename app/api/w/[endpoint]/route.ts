@@ -117,14 +117,13 @@ async function handleWebhook(
           delete forwardHeaders['x-original-host']
           delete forwardHeaders['x-resend']
           delete forwardHeaders['x-original-request-id']
-          delete forwardHeaders['content-type'] // Remove original to avoid duplication
           
           // Set forwarding headers
           forwardHeaders['x-forwarded-for'] = headers['x-forwarded-for'] || '127.0.0.1'
           forwardHeaders['x-original-host'] = headers['host'] || ''
           forwardHeaders['x-webhook-source'] = 'webbaharihook'
 
-          // Handle content-type properly
+          // Handle content-type properly - clean and set it
           let forwardContentType = contentType
           if (forwardContentType) {
             // Remove duplicates and clean up
@@ -132,6 +131,10 @@ async function handleWebhook(
           } else {
             forwardContentType = 'application/json'
           }
+          
+          // Remove the original content-type and set the clean one
+          delete forwardHeaders['content-type']
+          forwardHeaders['content-type'] = forwardContentType
 
           // Add custom headers if configured
           if (webhook.customHeaders) {
@@ -167,10 +170,7 @@ async function handleWebhook(
 
           const response = await fetch(destinationUrl, {
             method,
-            headers: {
-              ...forwardHeaders,
-              'Content-Type': forwardContentType,
-            },
+            headers: forwardHeaders, // Headers already include cleaned content-type
             body: requestBody,
             signal: AbortSignal.timeout((webhook.timeout || 30) * 1000),
           })
