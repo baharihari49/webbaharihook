@@ -117,6 +117,7 @@ export async function POST(
         // Remove headers that shouldn't be forwarded
         delete forwardHeaders['host']
         delete forwardHeaders['content-length']
+        delete forwardHeaders['connection'] // This causes "invalid connection header" error
         delete forwardHeaders['x-forwarded-host']
         delete forwardHeaders['x-forwarded-port']
         delete forwardHeaders['x-original-host']
