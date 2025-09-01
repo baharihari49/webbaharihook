@@ -107,6 +107,19 @@ async function handleWebhook(
         usedDestinationUrl = destinationUrl
         
         try {
+          // Prevent infinite loops - check if destination is our own webhook system
+          const isOwnWebhook = destinationUrl.includes('webbaharihook.baharihari.com/api/w/') ||
+                              destinationUrl.includes('172.28.1.12:3002/api/w/') ||
+                              destinationUrl.includes('localhost:3002/api/w/')
+          
+          if (isOwnWebhook) {
+            console.error(`⚠️ Skipping self-referencing webhook: ${destinationUrl}`)
+            error = 'Cannot forward webhook to itself (infinite loop prevention)'
+            statusCode = 400
+            responseTime = 0
+            continue // Try next destination URL
+          }
+          
           const forwardHeaders = { ...headers }
           
           // Remove headers that shouldn't be forwarded
@@ -188,6 +201,24 @@ async function handleWebhook(
           break // Success, stop trying other URLs
           
         } catch (err) {
+          console.error(`❌ Error forwarding to ${destinationUrl}:`, err)
+          console.error(`- Error type:`, err?.constructor?.name)
+          console.error(`- Error message:`, err instanceof Error ? err.message : String(err))
+          console.error(`- Error cause:`, err instanceof Error && err.cause ? JSON.stringify(err.cause) : 'No cause')
+          console.error(`- Environment: ${process.env.NODE_ENV || 'development'}`)
+          
+          // More detailed error for fetch failures
+          if (err instanceof Error && err.message === 'fetch failed') {
+            console.error(`🔍 Fetch failed - Common causes in production:`)
+            console.error(`  1. SSL/TLS certificate issues`)
+            console.error(`  2. DNS resolution problems`)
+            console.error(`  3. Firewall/network restrictions`)
+            console.error(`  4. Target server rejecting connections from production IP`)
+            console.error(`  5. Missing Node.js fetch polyfills in production`)
+            console.error(`- Target URL: ${destinationUrl}`)
+            console.error(`- Is HTTPS: ${destinationUrl.startsWith('https')}`)
+          }
+          
           error = err instanceof Error ? err.message : 'Unknown error occurred'
           statusCode = 500
           responseTime = Date.now() - startTime
