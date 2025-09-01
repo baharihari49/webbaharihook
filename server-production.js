@@ -5,8 +5,8 @@ const path = require('path')
 const next = require('next')
 
 const dev = false
-const hostname = process.env.HOST || '172.28.1.12'
-const port = parseInt(process.env.PORT || '3001', 10)
+const hostname = process.env.HOST
+const port = parseInt(process.env.PORT)
 
 const app = next({ dev, hostname, port })
 const handle = app.getRequestHandler()
