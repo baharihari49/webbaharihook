@@ -28,7 +28,15 @@
     "prisma:push": "prisma db push",
     "prisma:migrate": "prisma migrate deploy",
     "deploy:setup": "mkdir -p logs && npm run prisma:generate && npm run build:prod",
-    "lint": "eslint"
+    "lint": "eslint",
+    "docker:build": "docker build -t webbaharihook:latest .",
+    "docker:run": "docker run -p 3000:3000 --env-file .env webbaharihook:latest",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "docker:logs": "docker-compose logs -f",
+    "docker:rebuild": "docker-compose down && docker-compose build --no-cache && docker-compose up -d",
+    "docker:shell": "docker exec -it webbaharihook-app sh",
+    "docker:prune": "docker system prune -af"
   },
   "dependencies": {
     "@next-auth/prisma-adapter": "^1.0.7",
