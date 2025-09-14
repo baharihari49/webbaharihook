@@ -119,7 +119,7 @@ async function handleWebhook(
         
         try {
           // Prevent infinite loops - check if destination is our own webhook system
-          const isOwnWebhook = destinationUrl.includes('webbaharihook.baharihari.com/api/w/') ||
+          const isOwnWebhook = destinationUrl.includes('webbaharihook2.baharihari.com/api/w/') ||
                               destinationUrl.includes('172.28.1.12:3002/api/w/') ||
                               destinationUrl.includes('localhost:3002/api/w/')
           

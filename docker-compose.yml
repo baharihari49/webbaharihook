@@ -5,19 +5,11 @@ services:
       dockerfile: Dockerfile
     image: webbaharihook:latest
     container_name: webbaharihook-app
-    ports:
-      - "3000:3000"
     environment:
-      # Database configuration - use your external MySQL
       DATABASE_URL: ${DATABASE_URL}
-
-      # NextAuth configuration
-      NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
+      NEXTAUTH_URL: https://${DOMAIN:-webbaharihook2.baharihari.com}
       NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
-
-      # Node environment
-      NODE_ENV: ${NODE_ENV:-production}
-
+      NODE_ENV: production
     restart: unless-stopped
     networks:
       - webbaharihook-network
@@ -28,12 +20,33 @@ services:
       retries: 3
       start_period: 40s
 
+  nginx:
+    image: nginx:alpine
+    container_name: webbaharihook-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./certbot/conf:/etc/letsencrypt:ro
+      - ./certbot/www:/var/www/certbot:ro
+    depends_on:
+      - webbaharihook
+    restart: unless-stopped
+    networks:
+      - webbaharihook-network
+    command: "/bin/sh -c 'while :; do sleep 6h & wait $${!}; nginx -s reload; done & nginx -g \"daemon off;\"'"
+
+  certbot:
+    image: certbot/certbot
+    container_name: webbaharihook-certbot
+    volumes:
+      - ./certbot/conf:/etc/letsencrypt
+      - ./certbot/www:/var/www/certbot
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
+    networks:
+      - webbaharihook-network
+
 networks:
   webbaharihook-network:
     driver: bridge
-
-# Production deployment with external MySQL
-# Make sure to set these environment variables:
-# - DATABASE_URL: Your external MySQL connection string
-# - NEXTAUTH_SECRET: Your NextAuth secret key
-# - NEXTAUTH_URL: Your production URL
