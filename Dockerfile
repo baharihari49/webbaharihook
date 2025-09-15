@@ -40,9 +40,13 @@ COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
-# Copy Prisma files (before switching user)
-COPY --from=builder /app/prisma ./prisma
-COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
+# Copy Prisma schema and generate client in runtime
+COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
+
+# Install pnpm and generate Prisma client
+RUN corepack enable && corepack prepare pnpm@latest --activate
+RUN pnpm add prisma @prisma/client
+RUN npx prisma generate
 
 USER nextjs
 
