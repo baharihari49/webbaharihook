@@ -35,10 +35,18 @@ RUN apk add --no-cache libc6-compat
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
+# Install pnpm and prisma CLI in production
+RUN corepack enable && corepack prepare pnpm@latest --activate
+RUN pnpm add prisma @prisma/client
+
 # Copy built application from builder
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+
+# Copy Prisma files
+COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/.prisma ./node_modules/.prisma
 
 
 USER nextjs
@@ -51,3 +59,6 @@ ENV HOSTNAME="0.0.0.0"
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
   CMD node -e "require('http').get('http://localhost:3000/api/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1); });" || exit 1
+
+# Start the application
+CMD ["node", "server.js"]
