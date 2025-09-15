@@ -40,11 +40,6 @@ COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
-# Copy Prisma schema for migrations
-COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
-
-# Install prisma CLI for migrations
-RUN npm install -g prisma
 
 USER nextjs
 
@@ -56,6 +51,3 @@ ENV HOSTNAME="0.0.0.0"
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
   CMD node -e "require('http').get('http://localhost:3000/api/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1); });" || exit 1
-
-# Run migrations and start the app
-CMD ["sh", "-c", "npx prisma migrate deploy && node server.js"]
